@@ -1,0 +1,83 @@
+{
+    "name": "stage",
+    "type": "advanced-cloud",
+    "account": "222222222222",
+    "region": "us-west-2",
+    "network": {
+        "pattern": "private-nat",
+        "azCount": 3,
+        "enableFlowLogs": true,
+        "vpcCidr": "10.1.0.0/16"
+    },
+    "compute": {
+        "pattern": "mixed",
+        "nodeGroups": [
+            {
+                "name": "general",
+                "instanceTypes": [
+                    "t3.large"
+                ],
+                "capacityType": "ON_DEMAND",
+                "desired": 3,
+                "min": 2,
+                "max": 6,
+                "labels": {
+                    "role": "general"
+                }
+            },
+            {
+                "name": "monitoring",
+                "instanceTypes": [
+                    "m5.large"
+                ],
+                "capacityType": "ON_DEMAND",
+                "desired": 1,
+                "min": 1,
+                "max": 2,
+                "labels": {
+                    "role": "monitoring"
+                },
+                "taints": [
+                    {
+                        "key": "monitoring",
+                        "value": "true",
+                        "effect": "NO_SCHEDULE"
+                    }
+                ]
+            }
+        ],
+        "fargateProfiles": [
+            {
+                "name": "system",
+                "selectors": [
+                    {
+                        "namespace": "kube-system"
+                    },
+                    {
+                        "namespace": "aws-load-balancer-controller"
+                    }
+                ]
+            }
+        ]
+    },
+    "addons": {
+        "gitops": "flux",
+        "mesh": "none",
+        "albController": true,
+        "certManager": true,
+        "observability": true,
+        "ebs": true,
+        "efs": true
+    },
+    "costControls": {
+        "autoShutdown": false,
+        "ttlHours": 24,
+        "budgetAlerts": true,
+        "tags": {
+            "Environment": "stage",
+            "CostCenter": "homelab",
+            "Owner": "platform-team"
+        }
+    },
+    "eksVersion": "1.30"
+}

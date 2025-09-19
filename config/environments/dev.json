@@ -1,0 +1,63 @@
+{
+    "name": "dev",
+    "type": "basic-cloud",
+    "account": "111111111111",
+    "region": "us-east-1",
+    "network": {
+        "pattern": "public-only",
+        "azCount": 2,
+        "enableFlowLogs": false,
+        "vpcCidr": "10.0.0.0/16"
+    },
+    "compute": {
+        "pattern": "mixed",
+        "nodeGroups": [
+            {
+                "name": "general",
+                "instanceTypes": [
+                    "t3.medium"
+                ],
+                "capacityType": "ON_DEMAND",
+                "desired": 2,
+                "min": 1,
+                "max": 4,
+                "labels": {
+                    "role": "general"
+                }
+            }
+        ],
+        "fargateProfiles": [
+            {
+                "name": "system",
+                "selectors": [
+                    {
+                        "namespace": "kube-system"
+                    },
+                    {
+                        "namespace": "aws-load-balancer-controller"
+                    }
+                ]
+            }
+        ]
+    },
+    "addons": {
+        "gitops": "none",
+        "mesh": "none",
+        "albController": true,
+        "certManager": true,
+        "observability": false,
+        "ebs": true,
+        "efs": false
+    },
+    "costControls": {
+        "autoShutdown": true,
+        "ttlHours": 8,
+        "budgetAlerts": true,
+        "tags": {
+            "Environment": "dev",
+            "CostCenter": "homelab",
+            "Owner": "developer"
+        }
+    },
+    "eksVersion": "1.30"
+}
