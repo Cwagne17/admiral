@@ -99,7 +99,7 @@ export class EKSBuilder extends Construct {
         const clusterSecurityGroup = this.createClusterSecurityGroup(props.vpc, props.environment);
 
         // Create EKS cluster
-        const cluster = new eks.Cluster(this, 'Cluster', {
+        const cluster = new Cluster(this, 'Cluster', {
             clusterName,
             version: props.version,
             vpc: props.vpc,
@@ -155,31 +155,31 @@ export class EKSBuilder extends Construct {
         }
     }
 
-    private getEndpointAccess(props: EKSBuilderProps): eks.EndpointAccess {
+    private getEndpointAccess(props: EKSBuilderProps): EndpointAccess {
         if (props.privateEndpoint) {
-            return eks.EndpointAccess.PRIVATE;
+            return EndpointAccess.PRIVATE;
         }
-        return eks.EndpointAccess.PUBLIC_AND_PRIVATE;
+        return EndpointAccess.PUBLIC_AND_PRIVATE;
     }
 
-    private getClusterLogging(): eks.ClusterLoggingTypes[] {
+    private getClusterLogging(): ClusterLoggingTypes[] {
         return [
-            eks.ClusterLoggingTypes.API,
-            eks.ClusterLoggingTypes.AUDIT,
-            eks.ClusterLoggingTypes.AUTHENTICATOR,
-            eks.ClusterLoggingTypes.CONTROLLER_MANAGER,
-            eks.ClusterLoggingTypes.SCHEDULER,
+            ClusterLoggingTypes.API,
+            ClusterLoggingTypes.AUDIT,
+            ClusterLoggingTypes.AUTHENTICATOR,
+            ClusterLoggingTypes.CONTROLLER_MANAGER,
+            ClusterLoggingTypes.SCHEDULER,
         ];
     }
 
-    private needsNodeSecurityGroup(pattern: string): boolean {
-        return pattern !== 'fargate-only';
+    private needsNodeSecurityGroup(pattern: ComputePattern): boolean {
+        return pattern !== ComputePattern.FARGATE_ONLY;
     }
 
-    private createClusterSecurityGroup(vpc: ec2.IVpc, environment: string): ec2.SecurityGroup {
+    private createClusterSecurityGroup(vpc: IVpc, environment: Environment): SecurityGroup {
         const sgName = generateResourceName('admiral', environment, 'cluster-sg');
 
-        const securityGroup = new ec2.SecurityGroup(this, 'ClusterSecurityGroup', {
+        const securityGroup = new SecurityGroup(this, 'ClusterSecurityGroup', {
             vpc,
             description: 'Security group for EKS cluster control plane',
             securityGroupName: sgName,
@@ -187,8 +187,8 @@ export class EKSBuilder extends Construct {
 
         // Allow HTTPS traffic for EKS API server
         securityGroup.addIngressRule(
-            ec2.Peer.anyIpv4(),
-            ec2.Port.tcp(443),
+            Peer.anyIpv4(),
+            Port.tcp(443),
             'Allow HTTPS access to EKS API server'
         );
 
@@ -196,13 +196,13 @@ export class EKSBuilder extends Construct {
     }
 
     private createNodeSecurityGroup(
-        vpc: ec2.IVpc,
-        clusterSecurityGroup: ec2.SecurityGroup,
-        environment: string
-    ): ec2.SecurityGroup {
+        vpc: IVpc,
+        clusterSecurityGroup: SecurityGroup,
+        environment: Environment
+    ): SecurityGroup {
         const sgName = generateResourceName('admiral', environment, 'node-sg');
 
-        const securityGroup = new ec2.SecurityGroup(this, 'NodeSecurityGroup', {
+        const securityGroup = new SecurityGroup(this, 'NodeSecurityGroup', {
             vpc,
             description: 'Security group for EKS worker nodes',
             securityGroupName: sgName,
@@ -211,21 +211,21 @@ export class EKSBuilder extends Construct {
         // Allow all traffic between nodes
         securityGroup.addIngressRule(
             securityGroup,
-            ec2.Port.allTraffic(),
+            Port.allTraffic(),
             'Allow all traffic between worker nodes'
         );
 
         // Allow traffic from cluster security group
         securityGroup.addIngressRule(
             clusterSecurityGroup,
-            ec2.Port.allTraffic(),
+            Port.allTraffic(),
             'Allow traffic from EKS cluster control plane'
         );
 
         // Allow cluster to communicate with nodes
         clusterSecurityGroup.addEgressRule(
             securityGroup,
-            ec2.Port.allTraffic(),
+            Port.allTraffic(),
             'Allow cluster to communicate with worker nodes'
         );
 
@@ -326,14 +326,14 @@ export class EKSBuilder extends Construct {
         });
     }
 
-    private mapTaintEffect(effect: string): eks.TaintEffect {
+    private mapTaintEffect(effect: TaintEffect): EksTaintEffect {
         switch (effect) {
-            case 'NO_SCHEDULE':
-                return eks.TaintEffect.NO_SCHEDULE;
-            case 'PREFER_NO_SCHEDULE':
-                return eks.TaintEffect.PREFER_NO_SCHEDULE;
-            case 'NO_EXECUTE':
-                return eks.TaintEffect.NO_EXECUTE;
+            case TaintEffect.NO_SCHEDULE:
+                return EksTaintEffect.NO_SCHEDULE;
+            case TaintEffect.PREFER_NO_SCHEDULE:
+                return EksTaintEffect.PREFER_NO_SCHEDULE;
+            case TaintEffect.NO_EXECUTE:
+                return EksTaintEffect.NO_EXECUTE;
             default:
                 throw new Error(`Invalid taint effect: ${effect}`);
         }
