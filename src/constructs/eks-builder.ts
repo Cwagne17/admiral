@@ -2,7 +2,7 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as eks from 'aws-cdk-lib/aws-eks';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
-import { generateResourceName, generateStandardTags } from '../utils';
+import { generateResourceName, generateStandardTags } from '../utils/aws-utils';
 import { VPCBuilderOutput } from './vpc-builder';
 
 export interface EKSBuilderProps {
@@ -108,22 +108,14 @@ export class EKSBuilder extends Construct {
     // Validate props
     this.validateProps(props);
 
-    // Generate resource names and tags
+    // Generate resource names
     const clusterName = generateResourceName('admiral', props.environment, 'cluster');
-    const tags = generateStandardTags(props.environment, props.homelabType, props.additionalTags);
 
-    // Create cluster service role
-    const clusterRole = this.createClusterServiceRole(props);
-
-    // Create cluster security group
-    const clusterSecurityGroup = this.createClusterSecurityGroup(props);
-
-    // Create EKS cluster
+    // Create EKS cluster using standard Cluster construct for better flexibility
     const cluster = new eks.Cluster(this, 'EKSCluster', {
       clusterName,
       version: props.version,
       vpc: props.vpcConfig.vpc,
-      defaultCapacity: 0, // We'll manage capacity separately
       endpointAccess: this.getEndpointAccess(props),
       clusterLogging: [
         eks.ClusterLoggingTypes.API,
@@ -132,7 +124,9 @@ export class EKSBuilder extends Construct {
         eks.ClusterLoggingTypes.CONTROLLER_MANAGER,
         eks.ClusterLoggingTypes.SCHEDULER,
       ],
-      // kubectlLayer will be created automatically by CDK
+      // Use default node group only if we need managed nodes
+      defaultCapacity: this.needsNodeGroups(props.computePattern) ? 0 : undefined,
+      tags: generateStandardTags(props.environment, props.homelabType, props.additionalTags),
     });
 
     // Create node security group if needed
@@ -156,75 +150,90 @@ export class EKSBuilder extends Construct {
       nodeGroups,
       fargateProfiles,
       managedAddons,
-      clusterSecurityGroup,
+      clusterSecurityGroup: cluster.clusterSecurityGroup,
       nodeSecurityGroup,
     };
   }
 
+  /**
+   * Validates EKS builder properties for consistency and correctness
+   * @param props - The EKS builder properties to validate
+   * @throws Error if validation fails
+   */
   private validateProps(props: EKSBuilderProps): void {
     const validPatterns = ['fargate-only', 'managed-nodes', 'mixed', 'windows'];
     if (!validPatterns.includes(props.computePattern)) {
-      throw new Error(`Invalid compute pattern. Must be one of: ${validPatterns.join(', ')}`);
+      throw new Error(`Invalid compute pattern '${props.computePattern}'. Must be one of: ${validPatterns.join(', ')}`);
     }
 
+    // Validate pattern-specific configurations
     if (props.computePattern === 'fargate-only' && props.nodeGroupConfigs.length > 0) {
-      throw new Error('Fargate-only pattern cannot have node group configurations');
+      throw new Error('Fargate-only pattern cannot have node group configurations. Remove nodeGroupConfigs or change compute pattern.');
     }
 
     if (props.computePattern === 'managed-nodes' && props.fargateProfiles.length > 0) {
-      throw new Error('Managed-nodes pattern cannot have Fargate profile configurations');
+      throw new Error('Managed-nodes pattern cannot have Fargate profile configurations. Remove fargateProfiles or change compute pattern.');
     }
 
     // Validate node group configurations
-    props.nodeGroupConfigs.forEach((config, index) => {
-      if (config.min > config.desired || config.desired > config.max) {
-        throw new Error(`Invalid capacity configuration for node group ${index}: min <= desired <= max`);
-      }
-
-      if (config.instanceTypes.length === 0) {
-        throw new Error(`Node group ${index} must have at least one instance type`);
-      }
+    props.nodeGroupConfigs.forEach((config) => {
+      this.validateNodeGroupConfig(config);
     });
 
     // Validate Fargate profiles
-    props.fargateProfiles.forEach((profile, index) => {
-      if (profile.selectors.length === 0) {
-        throw new Error(`Fargate profile ${index} must have at least one selector`);
+    props.fargateProfiles.forEach((profile) => {
+      this.validateFargateProfile(profile);
+    });
+  }
+
+  /**
+   * Validates a single node group configuration
+   * @param config - Node group configuration to validate
+   * @throws Error if validation fails
+   */
+  private validateNodeGroupConfig(config: NodeGroupConfig): void {
+    if (config.min > config.desired || config.desired > config.max) {
+      throw new Error(`Invalid capacity configuration for node group '${config.name}': min (${config.min}) <= desired (${config.desired}) <= max (${config.max})`);
+    }
+
+    if (config.instanceTypes.length === 0) {
+      throw new Error(`Node group '${config.name}' must have at least one instance type`);
+    }
+
+    if (config.min < 0 || config.desired < 0 || config.max < 0) {
+      throw new Error(`Node group '${config.name}' capacity values must be non-negative`);
+    }
+
+    if (config.max > 100) {
+      console.warn(`Node group '${config.name}' has high max capacity (${config.max}). Consider cost implications.`);
+    }
+  }
+
+  /**
+   * Validates a single Fargate profile configuration
+   * @param profile - Fargate profile configuration to validate
+   * @throws Error if validation fails
+   */
+  private validateFargateProfile(profile: FargateProfileConfig): void {
+    if (profile.selectors.length === 0) {
+      throw new Error(`Fargate profile '${profile.name}' must have at least one selector`);
+    }
+
+    profile.selectors.forEach((selector, selectorIndex) => {
+      if (!selector.namespace || selector.namespace.trim() === '') {
+        throw new Error(`Fargate profile '${profile.name}' selector ${selectorIndex} must have a valid namespace`);
       }
     });
   }
 
-  private createClusterServiceRole(props: EKSBuilderProps): iam.Role {
-    const roleName = generateResourceName('admiral', props.environment, 'cluster-role');
 
-    return new iam.Role(this, 'ClusterServiceRole', {
-      roleName,
-      assumedBy: new iam.ServicePrincipal('eks.amazonaws.com'),
-      managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonEKSClusterPolicy'),
-      ],
-    });
-  }
 
-  private createClusterSecurityGroup(props: EKSBuilderProps): ec2.SecurityGroup {
-    const sgName = generateResourceName('admiral', props.environment, 'cluster-sg');
-
-    const securityGroup = new ec2.SecurityGroup(this, 'ClusterSecurityGroup', {
-      vpc: props.vpcConfig.vpc,
-      description: 'Security group for EKS cluster control plane',
-      securityGroupName: sgName,
-    });
-
-    // Allow HTTPS traffic for EKS API server
-    securityGroup.addIngressRule(
-      ec2.Peer.anyIpv4(),
-      ec2.Port.tcp(443),
-      'Allow HTTPS access to EKS API server'
-    );
-
-    return securityGroup;
-  }
-
+  /**
+   * Creates a security group for EKS worker nodes with appropriate rules
+   * @param props - EKS builder properties
+   * @param cluster - The EKS cluster instance
+   * @returns Security group for worker nodes
+   */
   private createNodeSecurityGroup(props: EKSBuilderProps, cluster: eks.Cluster): ec2.SecurityGroup {
     const sgName = generateResourceName('admiral', props.environment, 'node-sg');
 
@@ -234,33 +243,44 @@ export class EKSBuilder extends Construct {
       securityGroupName: sgName,
     });
 
-    // Allow all traffic between nodes
+    // Allow all traffic between nodes for pod-to-pod communication
     securityGroup.addIngressRule(
       securityGroup,
       ec2.Port.allTraffic(),
       'Allow all traffic between worker nodes'
     );
 
-    // Allow traffic from cluster security group
+    // Allow traffic from cluster security group for kubelet communication
     securityGroup.addIngressRule(
       cluster.clusterSecurityGroup,
       ec2.Port.allTraffic(),
-      'Allow traffic from EKS cluster'
+      'Allow traffic from EKS cluster control plane'
     );
 
-    // Allow cluster to communicate with nodes
+    // Allow cluster to communicate with nodes for API calls
     cluster.clusterSecurityGroup.addEgressRule(
       securityGroup,
       ec2.Port.allTraffic(),
-      'Allow cluster to communicate with nodes'
+      'Allow cluster to communicate with worker nodes'
     );
 
     return securityGroup;
   }
 
+  /**
+   * Determines the appropriate endpoint access configuration based on environment and homelab type
+   * @param props - EKS builder properties
+   * @returns Endpoint access configuration
+   */
   private getEndpointAccess(props: EKSBuilderProps): eks.EndpointAccess {
-    // For homelab use, we'll use public and private access for flexibility
-    // In production, you might want private-only
+    // For homelab environments, prioritize accessibility over strict security
+    // Production environments should consider private-only access
+    if (props.environment === 'prod' && props.homelabType === 'advanced-cloud') {
+      // Production advanced setups can use private-only for enhanced security
+      return eks.EndpointAccess.PRIVATE;
+    }
+
+    // Default to public and private for development flexibility
     return eks.EndpointAccess.PUBLIC_AND_PRIVATE;
   }
 
