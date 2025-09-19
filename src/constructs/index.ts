@@ -1,5 +1,5 @@
 // Export all constructs
+export * from "./eks-builder";
 export * from "./vpc-builder";
-// TODO: Add other constructs as they are implemented
-// export * from "./eks-builder";
+// TODO: Add addon-builder as it is implemented
 // export * from "./addon-builder";

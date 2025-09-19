@@ -2,9 +2,58 @@
  * Type definitions for Admiral homelab configurations
  */
 
+// Enums for type safety
+export enum HomelabType {
+  LOCAL = 'local',
+  BASIC_CLOUD = 'basic-cloud',
+  ADVANCED_CLOUD = 'advanced-cloud',
+}
+
+export enum Environment {
+  DEV = 'dev',
+  STAGE = 'stage',
+  PROD = 'prod',
+}
+
+export enum ComputePattern {
+  FARGATE_ONLY = 'fargate-only',
+  MANAGED_NODES = 'managed-nodes',
+  MIXED = 'mixed',
+  WINDOWS = 'windows',
+}
+
+export enum NetworkPattern {
+  PUBLIC_ONLY = 'public-only',
+  PRIVATE_NAT = 'private-nat',
+  VPC_ENDPOINTS = 'vpc-endpoints',
+}
+
+export enum CapacityType {
+  ON_DEMAND = 'ON_DEMAND',
+  SPOT = 'SPOT',
+}
+
+export enum TaintEffect {
+  NO_SCHEDULE = 'NO_SCHEDULE',
+  PREFER_NO_SCHEDULE = 'PREFER_NO_SCHEDULE',
+  NO_EXECUTE = 'NO_EXECUTE',
+}
+
+export enum GitOpsType {
+  FLUX = 'flux',
+  ARGOCD = 'argocd',
+  NONE = 'none',
+}
+
+export enum ServiceMeshType {
+  LINKERD = 'linkerd',
+  ISTIO = 'istio',
+  NONE = 'none',
+}
+
 export interface HomelabConfig {
   name: string;
-  type: "local" | "basic-cloud" | "advanced-cloud";
+  type: HomelabType;
   account: string;
   region: string;
 
@@ -16,14 +65,14 @@ export interface HomelabConfig {
 }
 
 export interface NetworkConfig {
-  pattern: "public-only" | "private-nat" | "vpc-endpoints";
+  pattern: NetworkPattern;
   azCount: number;
   enableFlowLogs: boolean;
   vpcCidr: string;
 }
 
 export interface ComputeConfig {
-  pattern: "fargate-only" | "managed-nodes" | "mixed" | "windows";
+  pattern: ComputePattern;
   nodeGroups: NodeGroupConfig[];
   fargateProfiles: FargateProfileConfig[];
 }
@@ -31,7 +80,7 @@ export interface ComputeConfig {
 export interface NodeGroupConfig {
   name: string;
   instanceTypes: string[];
-  capacityType: "ON_DEMAND" | "SPOT";
+  capacityType: CapacityType;
   desired: number;
   min: number;
   max: number;
@@ -42,7 +91,7 @@ export interface NodeGroupConfig {
 export interface NodeTaint {
   key: string;
   value: string;
-  effect: "NO_SCHEDULE" | "PREFER_NO_SCHEDULE" | "NO_EXECUTE";
+  effect: TaintEffect;
 }
 
 export interface FargateProfileConfig {
@@ -56,8 +105,8 @@ export interface FargateSelector {
 }
 
 export interface AddonConfig {
-  gitops: "flux" | "argocd" | "none";
-  mesh: "linkerd" | "istio" | "none";
+  gitops: GitOpsType;
+  mesh: ServiceMeshType;
   albController: boolean;
   certManager: boolean;
   observability: boolean;
@@ -72,9 +121,19 @@ export interface CostControlConfig {
   tags: Record<string, string>;
 }
 
+export enum KubernetesDistribution {
+  K3S = 'k3s',
+  KIND = 'kind',
+}
+
+export enum PortProtocol {
+  TCP = 'tcp',
+  UDP = 'udp',
+}
+
 export interface LocalHomelabConfig {
   name: string;
-  type: "local";
+  type: HomelabType.LOCAL;
 
   vms: {
     count: number;
@@ -84,7 +143,7 @@ export interface LocalHomelabConfig {
   };
 
   kubernetes: {
-    distribution: "k3s" | "kind";
+    distribution: KubernetesDistribution;
     version: string;
     features: {
       ingress: boolean;
@@ -110,5 +169,5 @@ export interface PortForwardConfig {
   name: string;
   hostPort: number;
   guestPort: number;
-  protocol: "tcp" | "udp";
+  protocol: PortProtocol;
 }
