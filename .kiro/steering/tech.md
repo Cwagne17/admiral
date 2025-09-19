@@ -6,33 +6,38 @@ inclusion: always
 
 ## Core Stack Requirements
 
-**Build System**: Projen manages all project configuration - never edit generated files directly
-**Language**: TypeScript 5.9+ with strict null checks and type safety
-**Runtime**: Node.js 20+ required for all operations
-**Infrastructure**: AWS CDK v2 for all cloud resources
-**Target Platform**: AWS EKS for Kubernetes workloads
+- **Build System**: Projen manages all project configuration
+- **Language**: TypeScript 5.9+ with strict null checks and type safety
+- **Runtime**: Node.js 20+ required for all operations
+- **Infrastructure**: AWS CDK v2 for all cloud resources
+- **Target Platform**: AWS EKS for Kubernetes workloads
 
 ## Critical Development Rules
 
 ### File Modification Restrictions
 
-- **NEVER edit**: `package.json`, `tsconfig.json`, `.eslintrc.json` (Projen-managed)
-- **Always edit**: `.projenrc.ts` for project configuration changes
-- **Regenerate after changes**: Run `npm run build` after modifying `.projenrc.ts`
+**NEVER EDIT these Projen-managed files:**
+
+- `package.json`, `tsconfig.json`, `.eslintrc.json`, `.prettierrc.json`
+- Any file in `.projen/` directory
+- Generated CDK output in `cdk.out/`
+
+**ALWAYS EDIT `.projenrc.ts`** for project configuration changes, then run `npm run build`
 
 ### Code Quality Requirements
 
-- All TypeScript must pass strict type checking
+- All TypeScript must pass strict type checking (no `any` types)
 - 100% test coverage expected for new code
 - ESLint and Prettier must pass before commits
 - Security scanning with cdk-nag required for CDK code
+- Use enum values instead of string literals for typed properties
 
 ### Environment Management
 
-- Use `--context env={environment}` for CDK operations
+- Use `--context env={environment}` for all CDK operations
 - Environment configs must exist in `config/environments/{env}.json`
 - Default to `dev` environment for local development
-- Validate environment configuration before deployment
+- Always validate environment configuration before deployment
 
 ## Essential Commands
 
@@ -68,18 +73,23 @@ npm run destroy:dev    # Clean up development resources
 ### Stack Naming Convention
 
 - Format: `admiral-{env}-{component}`
-- Example: `admiral-dev-cluster`, `admiral-prod-networking`
+- Examples: `admiral-dev-cluster`, `admiral-prod-networking`
 
 ### Resource Tagging Strategy
 
-- Always include: `Environment`, `Project: admiral`, `ManagedBy: cdk`
-- Cost tracking: Include `CostCenter` tag for production resources
+**Required tags for all resources:**
+
+- `Environment`: dev/stage/prod
+- `Project`: admiral
+- `ManagedBy`: cdk
+- `CostCenter`: (production only)
 
 ### Configuration Management
 
-- Environment-specific configs in `config/environments/`
+- Environment-specific configs in `config/environments/{env}.json`
 - Type-safe configuration using interfaces in `src/utils/types.ts`
-- Validate all configuration before resource creation
+- Always validate configuration before resource creation
+- Use CDK context: `--context env={environment}`
 
 ## Security & Compliance
 
@@ -95,3 +105,4 @@ npm run destroy:dev    # Clean up development resources
 - No hardcoded secrets or credentials in code
 - Use AWS Secrets Manager or Parameter Store for sensitive data
 - Validate all external inputs and configuration
+- Follow principle of least privilege for all IAM roles

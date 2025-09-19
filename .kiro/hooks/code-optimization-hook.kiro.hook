@@ -1,0 +1,19 @@
+{
+  "enabled": true,
+  "name": "Code Optimization Review",
+  "description": "Automatically reviews and optimizes code for readability, maintainability, and inline documentation whenever Kiro finishes a task",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "src/**/*.ts",
+      "test/**/*.ts",
+      "scripts/**/*.sh",
+      ".projenrc.ts"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A task has been completed and code files have been modified. Please review the recently changed code for optimization opportunities focusing on:\n\n1. **Readability improvements**: Simplify complex logic, improve variable naming, add clarifying comments\n2. **Maintainability enhancements**: Reduce code duplication, improve error handling, enhance modularity\n3. **Inline documentation**: Add JSDoc comments for functions, interfaces, and complex logic blocks\n4. **Code structure**: Ensure proper separation of concerns and adherence to project patterns\n\nReview the modified files and suggest specific improvements that align with the Admiral project's TypeScript, CDK, and homelab infrastructure patterns. Focus on practical changes that make the code easier to understand and maintain."
+  }
+}

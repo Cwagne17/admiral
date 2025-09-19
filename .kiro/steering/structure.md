@@ -1,4 +1,8 @@
-# Project Structure
+---
+inclusion: always
+---
+
+# Project Structure & Code Organization
 
 ## Root Directory Layout
 
@@ -48,18 +52,18 @@ scripts/
 
 ### Stack Organization
 
-- **Single stack per environment** - `admiral-{env}` naming convention
-- **Environment-driven configuration** - Use CDK context and config files
-- **Modular constructs** - Separate constructs for different components (EKS, networking, etc.)
+- **Single stack per environment**: `admiral-{env}` naming convention
+- **Environment-driven configuration**: Use CDK context and config files
+- **Modular constructs**: Separate constructs for different components (EKS, networking, etc.)
 
 ### File Naming Conventions
 
-- **Kebab-case** for file names (`my-construct.ts`)
-- **PascalCase** for class names (`MyConstruct`)
-- **camelCase** for variables and functions
-- **SCREAMING_SNAKE_CASE** for constants
+- **kebab-case**: File names (`my-construct.ts`)
+- **PascalCase**: Class names (`MyConstruct`)
+- **camelCase**: Variables and functions
+- **SCREAMING_SNAKE_CASE**: Constants
 
-### Import Organization
+### Import Organization (Required Order)
 
 ```typescript
 // 1. Node.js built-ins
@@ -75,10 +79,10 @@ import { HomelabConfig } from "./utils";
 
 ### Configuration Management
 
-- **Environment configs** in `config/environments/{env}.json`
-- **CDK context** for environment selection (`--context env=dev`)
-- **Type-safe configuration** using interfaces in `src/utils/types.ts`
-- **Validation** before deployment using utility functions
+- Environment configs: `config/environments/{env}.json`
+- CDK context: `--context env={environment}`
+- Type-safe configuration: interfaces in `src/utils/types.ts`
+- Always validate before deployment
 
 ### Testing Structure
 
@@ -94,25 +98,24 @@ test/
 ### Environment Handling
 
 - Use `--context env={environment}` for environment selection
-- Environment configs must exist in `config/environments/`
-- Default to development environment for local testing
+- Environment configs must exist in `config/environments/{env}.json`
+- Default to `dev` environment for local testing
 
 ### Resource Naming
 
 - **Consistent prefixing**: `admiral-{env}-{resource-type}`
-- **Tagging strategy**: Include environment, project, and cost center tags
 - **Cluster naming**: `admiral-{env}-cluster`
+- **Tagging strategy**: Include environment, project, and cost center tags
 
-### Code Organization
+### Code Organization Rules
 
-- **Single responsibility** - One construct per file when possible
-- **Utility functions** - Shared logic in `src/utils/`
-- **Type definitions** - Centralized in `src/utils/types.ts`
-- **Configuration validation** - Before resource creation
+- **Single responsibility**: One construct per file when possible
+- **Utility functions**: Shared logic in `src/utils/`
+- **Type definitions**: Centralized in `src/utils/types.ts`
+- **Configuration validation**: Always validate before resource creation
 
-### Generated Files (Do Not Edit)
+### Generated Files (NEVER EDIT)
 
-- `package.json` - Managed by Projen
-- `tsconfig.json` - Managed by Projen
-- `.eslintrc.json` - Managed by Projen
-- `cdk.out/` - CDK synthesis output
+- `package.json`, `tsconfig.json`, `.eslintrc.json` (Projen-managed)
+- `cdk.out/` directory (CDK synthesis output)
+- Any file in `.projen/` directory
